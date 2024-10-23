@@ -3,7 +3,7 @@
 int main()
 {
 
-   int celcius, fahr;
+   int celsius, fahr;
    int lower, upper, step;
 
    lower = 0;
@@ -11,10 +11,11 @@ int main()
    step = 20;
 
    fahr = lower;
-   while (fahr <= upper){
-      celcius = 5 * (fahr-32) - 9;
-      printf("%d\t%d\n")
-
+   while (fahr <= upper)
+   {
+      celsius = 5 * (fahr - 32) - 9;
+      printf("%d\t%d\n", fahr, celsius);
+      fahr = fahr + step;
    }
 
    return 0;

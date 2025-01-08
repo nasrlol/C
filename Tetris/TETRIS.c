@@ -3,206 +3,228 @@
 #include <stdio.h>
 #include <time.h>
 
-// GAME FPS
-#define FPS 60
+// GAME SETTINGS
+#define FPS 30
+#define FONT_SIZE 20
 
-// SHAPE COLORS
-#define CYAN_I CYAN       // VERTICAL LINE OR SOMETHING
-#define YELLOW_O YELLOW   // SQUARE
-#define PURPLE_T PURPLE // HORIZONTAL LINE AND THEN ONE DOWN
-#define GREEN_S GREEN     // Z-SHAPE LIKE THING
-#define RED_Z RED         // GREEN BUT REVERSED
-#define BLUE_J BLUE       // A REVERSED L
-#define ORANGE_L ORANGE   // A NORMAL L
+#define CYAN_I \
+    (Color) { 0, 255, 255, 255 }
+#define YELLOW_O \
+    (Color) { 255, 255, 102, 255 }
+#define PURPLE_T \
+    (Color) { 138, 43, 226, 255 }
+#define GREEN_S \
+    (Color) { 34, 139, 34, 255 }
+#define RED_Z \
+    (Color) { 255, 69, 0, 255 }
+#define BLUE_J \
+    (Color) { 70, 130, 180, 255 }
+#define ORANGE_L \
+    (Color) { 255, 140, 0, 255 }
 
-int BLOCKS[7][4][4] = {
+// Window and Grid Settings
+static const int SCREEN_WIDTH = 400;
+static const int SCREEN_HEIGHT = 600;
+static const int COLUMNS = 10;
+static const int ROWS = 20;
+static const int CELL_WIDTH = SCREEN_WIDTH / COLUMNS;
+static const int CELL_HEIGHT = SCREEN_HEIGHT / ROWS;
+
+static int SCORE = 0;
+static float DROP_INTERVAL = 0.0f;
+static const float DROP_TIMEFRAME = 0.1f;
+
+typedef struct
+{
+    int blocks[4][4];
+    Color color;
+    int x; 
+    int y; 
+} TETROMINO;
+
+TETROMINO TETROMINOES[7] = {
+    // Making the tetrominoes in an array design
     {
-        // I
-        {0, 0, 0, 0},
-        {1, 1, 1, 1},
-        {0, 0, 0, 0},
-        {0, 0, 0, 0},
-    },
+        {
+            {0, 0, 0, 0}, {1, 1, 1, 1}, {0, 0, 0, 0}, {0, 0, 0, 0}}, CYAN_I, 0, 0},
     {
-        // O
-        {0, 0, 0, 0},
-        {0, 1, 1, 0},
-        {0, 1, 1, 0},
-        {0, 0, 0, 0},
-    },
+        {
+            {0, 1, 1, 0}, {0, 1, 1, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}}, YELLOW_O, 0, 0},
     {
-        // T
-        {0, 0, 0, 0},
-        {0, 1, 1, 1},
-        {0, 0, 1, 0},
-        {0, 0, 0, 0},
-    },
+        {
+            {0, 1, 0, 0}, {1, 1, 1, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}}, PURPLE_T, 0, 0},
     {
-        // S
-        {0, 0, 0, 0},
-        {0, 0, 1, 1},
-        {0, 1, 1, 0},
-        {0, 0, 0, 0},
-    },
+        {
+            {0, 1, 1, 0}, {1, 1, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}}, GREEN_S, 0, 0},
     {
-        // Z
-        {0, 0, 0, 0},
-        {0, 1, 1, 0},
-        {0, 0, 1, 1},
-        {0, 0, 0, 0},
-    },
+        {
+            {1, 1, 0, 0}, {0, 1, 1, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}}, RED_Z, 0, 0},
     {
-        // J
-        {0, 0, 0, 0},
-        {0, 1, 1, 1},
-        {0, 0, 0, 1},
-        {0, 0, 0, 0},
-    },
+        {
+            {1, 0, 0, 0}, {1, 1, 1, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}}, BLUE_J, 0, 0},
     {
-        // L
-        {0, 0, 0, 0},
-        {0, 1, 1, 1},
-        {0, 1, 0, 0},
-        {0, 0, 0, 0},
-    },
+        {
+            {0, 0, 1, 0}, {1, 1, 1, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}}, ORANGE_L, 0, 0},
 };
 
-void DRAW_GRID(int rows, int columns, int cell_width, int cell_height, int screen_width, int screen_height)
+void DRAW_GRID_BACKGROUND()
 {
-    for (int i = 0; i <= columns; i++)
+    for (int i = 0; i <= COLUMNS; i++)
     {
-        float x = i * cell_width;
-        DrawLine((int)x, 0, (int)x, screen_height, GRAY);
+        DrawLine(i * CELL_WIDTH, 0, i * CELL_WIDTH, SCREEN_HEIGHT, GRAY);
     }
-    for (int j = 0; j <= rows; j++)
+    for (int j = 0; j <= ROWS; j++)
     {
-        float y = j * cell_height;
-        DrawLine(0, (int)y, screen_width, (int)y, GRAY);
+        DrawLine(0, j * CELL_HEIGHT, SCREEN_WIDTH, j * CELL_HEIGHT, GRAY);
     }
 }
 
-void SPAWN_FIGURE(int BLOCKS[7][4][4], int SCREEN_HEIGHT, int SCREEN_WIDTH, int CELL_WIDTH, int CELL_HEIGHT, int FIGURE)
+int **TETROMINOS_GRID(int rows, int columns)
 {
-    int START_X, START_Y;
-    int X_MAX, X_MIN, Y_MAX, Y_MIN;
-    // definign the block size to draw it, still not sure on how do draw it though because the grid is from the top left down
-    int BLOCK_SIZE;
+    int **array = malloc(rows * sizeof(int *));
+    if (!array)
+        return NULL;
 
-    // set the limits for spawning a block
-    X_MIN = 0;
-    X_MAX = SCREEN_WIDTH;
-    Y_MIN = 0;
-    Y_MAX = 0;
+    for (int i = 0; i < rows; i++)
+    {
+        array[i] = calloc(columns, sizeof(int));
+        if (!array[i])
+        {
+            for (int j = 0; j < i; j++)
+                free(array[j]);
+            free(array);
+            return NULL;
+        }
+    }
+    return array;
+}
 
-    // set the seed for srand to generate a random coördinate
-    srand(time(NULL));
+void FREE_GRID(int **array, int rows)
+{
+    for (int i = 0; i < rows; i++)
+        free(array[i]);
+    free(array);
+}
 
-    START_X = rand() % ((X_MAX - X_MIN) + 1) + X_MIN;
-    START_Y = 2;
-
-    BLOCK_SIZE = 4;
-
+void DRAW_TETROMINO(TETROMINO *tetromino)
+{
     for (int y = 0; y < 4; y++)
     {
         for (int x = 0; x < 4; x++)
         {
-            if (BLOCKS[FIGURE][y][x] == 1)
+            if (tetromino->blocks[y][x] == 1)
             {
-                DrawRectangle(START_X + x * CELL_WIDTH, START_Y + y * CELL_HEIGHT + 1, CELL_WIDTH, CELL_HEIGHT + 1, BLUE);
+                DrawRectangle(
+                    (tetromino->x + x) * CELL_WIDTH,
+                    (tetromino->y + y) * CELL_HEIGHT,
+                    CELL_WIDTH, CELL_HEIGHT,
+                    tetromino->color);
             }
         }
     }
 }
 
-void MOVEMENT(int START_X, int START_Y)
+TETROMINO SPAWN_TETROMINO()
 {
-
-    if (IsKeyDown(KEY_RIGHT))
-        START_X += 1.0f;
-    if (IsKeyDown(KEY_LEFT))
-        START_X -= 1.0f;
-    if (IsKeyDown(KEY_UP))
-        START_Y += 1.0f;
-    if (IsKeyDown(KEY_DOWN))
-        START_Y -= 1.0f;
+    int RANDOM_INDEX = GetRandomValue(0, 6);
+    TETROMINO tetromino = TETROMINOES[RANDOM_INDEX];
+    tetromino.x = COLUMNS / 2 - 2;
+    tetromino.y = 0;
+    return tetromino;
 }
 
-int CHECK_LINE_WIN()
+void MOVE_TETROMINO(TETROMINO *tetromino)
 {
-    // checking for a full line and for every full line assing a point
-    
-    int POINT;
-    POINT = 0;
-
-    return POINT;
+    if (!IsKeyPressed(KEY_LEFT_SHIFT))
+    {
+        if (IsKeyPressed(KEY_RIGHT) && tetromino->x + 4 < COLUMNS + 1)
+            tetromino->x++;
+        if (IsKeyPressed(KEY_LEFT) && tetromino->x > 0)
+            tetromino->x--;
+        if (IsKeyDown(KEY_DOWN))
+            tetromino->y++;
+    }
 }
 
-int HIGH_SCORE(int CHECK_LINE_WIN)
+void SAVE_TETROMINO(TETROMINO *tetromino, int **GRID)
 {
-
-    // getting the poins from the CHECK_LINE_WIN function and adding them to the final score
-    int FINAL_SCORE;
-    FINAL_SCORE += CHECK_LINE_WIN;
-
-    return FINAL_SCORE;
+    for (int y = 0; y < 4; y++)
+    {
+        for (int x = 0; x < 4; x++)
+        {
+            if (tetromino->blocks[y][x] == 1)
+            {
+                int GRIDX = tetromino->x + x;
+                int GRIDY = tetromino->y + y;
+                if (GRIDY < ROWS && GRIDX < COLUMNS)
+                {
+                    GRID[GRIDY][GRIDX] = 1;
+                }
+            }
+        }
+    }
 }
 
-int main(void)
+void DRAW_SAVED_BLOCKS(int **GRID, TETROMINO *tetromino)
 {
+    for (int y = 0; y < ROWS; y++)
+    {
+        for (int x = 0; x < COLUMNS; x++)
+        {
+            if (GRID[y][x] == 1)
+                DrawRectangle(x * CELL_WIDTH, y * CELL_HEIGHT, CELL_WIDTH, CELL_HEIGHT, tetromino->color);
+        }
+    }
+}
 
-    // Initialize the window, use a 400 x 600 resolution
-    const int screen_width = 400;
-    const int screen_height = 600;
+void DRAW_STATS()
+{
+    char SCORE_TEXT[16];
+    sprintf(SCORE_TEXT, "Score: %d", SCORE);
+    DrawText(SCORE_TEXT, 10, 10, FONT_SIZE, BLUE);
+}
 
-    InitWindow(screen_width, screen_height, "Tetris");
-    // Set the target fps of the game
+int main()
+{
+    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Tetris");
     SetTargetFPS(FPS);
 
-    // disable and hide the cursor input to force keyboard use
-    HideCursor();
-
-    // get the measurements for the grid
-    // a default tetris grid should be 40 x 10
-    const int columns = 10;
-    const int rows = 20;
-
-    const float cell_width = (float)screen_width / columns;
-    const float cell_height = (float)screen_height / rows;
-
-    srand(time(NULL));
-    typedef enum 
-        {
-            I,
-            O,
-            T,
-            S,
-            Z,
-            J,
-            L} FIGURE;
-
-    int NUM_SHAPES;
-    NUM_SHAPES = 6;
-    FIGURE RANDOM_FIGURE = (FIGURE)(rand() % NUM_SHAPES);
+    TETROMINO ACTIVE_TETROMINO = SPAWN_TETROMINO();
+    int **GRID = TETROMINOS_GRID(ROWS, COLUMNS);
+    if (!GRID)
+    {
+        CloseWindow();
+        return 1;
+    }
 
     while (!WindowShouldClose())
     {
-        // initiaze drawing
         BeginDrawing();
-        // set the background color
         ClearBackground(BLACK);
 
-        // draw the grid in the background to place blocks on it afterwards
-        DRAW_GRID(rows, columns, cell_width, cell_height, screen_width, screen_height);
+        DRAW_GRID_BACKGROUND();
+        DRAW_SAVED_BLOCKS(GRID, &ACTIVE_TETROMINO);
+        DRAW_TETROMINO(&ACTIVE_TETROMINO);
+        DRAW_STATS();
 
-        // spawn the tetronomes 
-        SPAWN_FIGURE(BLOCKS, screen_height, screen_width, cell_width, cell_height, RANDOM_FIGURE);
+        DROP_INTERVAL += GetFrameTime();
+        if (DROP_INTERVAL >= DROP_TIMEFRAME)
+        {
+            DROP_INTERVAL = 0.0f;
+        }
 
-        // finish and stop drawing 
+        MOVE_TETROMINO(&ACTIVE_TETROMINO);
+
+        if (ACTIVE_TETROMINO.y + 4 >= ROWS)
+        {
+            SAVE_TETROMINO(&ACTIVE_TETROMINO, GRID);
+            ACTIVE_TETROMINO = SPAWN_TETROMINO();
+        }
+
         EndDrawing();
     }
 
-    // unitiialize the window
+    FREE_GRID(GRID, ROWS);
     CloseWindow();
-
     return 0;
 }

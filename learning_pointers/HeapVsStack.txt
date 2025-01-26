@@ -1,0 +1,6 @@
+So bassicly from what i understand the heap is expandable and the stack is predefined at compile time
+when using malloc we assing a memory adress of the assigned block on the heap
+
+so what does calloc do?
+
+and realloc?
